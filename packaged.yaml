@@ -1,0 +1,66 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: 'aws-serverless-pyportal-polly
+
+  '
+Globals:
+  Function:
+    Timeout: 3
+Parameters:
+  PaperQuotesAPIKey:
+    Type: String
+    Default: a9cba824df387acd6236ff8c8868ad01e16b68e1
+    Description: The API key for the Paper Quotes API.
+Resources:
+  SpeechApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: Prod
+      Auth:
+        ApiKeyRequired: true
+        UsagePlan:
+          CreateUsagePlan: PER_API
+  SynthesizeSpeechFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: s3://sar-apps-moheeb/0deb21ad456779c1c7e9d86abde7b8d4
+      Handler: app.lambda_handler
+      Runtime: python3.8
+      Policies:
+      - S3FullAccessPolicy:
+          BucketName:
+            Fn::Sub: ${AWS::StackName}-audio
+      - Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Action:
+          - polly:*
+          Resource: '*'
+      Environment:
+        Variables:
+          BUCKET_NAME:
+            Fn::Sub: ${AWS::StackName}-audio
+          PAPER_QUOTES_TOKEN:
+            Ref: PaperQuotesAPIKey
+      Events:
+        Speech:
+          Type: Api
+          Properties:
+            RestApiId:
+              Ref: SpeechApi
+            Path: /speech
+            Method: post
+  AudioBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName:
+        Fn::Sub: ${AWS::StackName}-audio
+Outputs:
+  SpeechApiUrl:
+    Description: API GW endpoint
+    Value:
+      Fn::Sub: https://${SpeechApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/speech
+  SpeechApiKey:
+    Description: Api key
+    Value:
+      Fn::Sub: https://${AWS::Region}.console.aws.amazon.com/apigateway/home?region=${AWS::Region}#/api-keys/${SpeechApi.ApiKey}
